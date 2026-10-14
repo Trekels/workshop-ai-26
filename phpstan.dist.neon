@@ -12,13 +12,3 @@ parameters:
         - tests/bootstrap.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
-
-    # Opdracht laag 2: de TODO-stubs gebruiken hun dependencies nog niet.
-    # Verwijder dit blok zodra ChatService::ask() en DoctrineConversationStore af zijn.
-    ignoreErrors:
-        -
-            identifiers: [property.onlyWritten, classConstant.unused]
-            path: src/Chat/ChatService.php
-        -
-            identifier: method.unused
-            path: src/Chat/DoctrineConversationStore.php

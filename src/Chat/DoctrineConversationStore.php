@@ -6,6 +6,7 @@ namespace App\Chat;
 
 use App\Ai\ChatMessage;
 use App\Entity\Conversation;
+use App\Entity\Message;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -25,24 +26,35 @@ final class DoctrineConversationStore implements ConversationStore
 
     public function messages(): array
     {
-        // TODO laag 2: haal het actieve gesprek op (zie currentConversation()) en geef zijn berichten
-        // terug als ChatMessage-objecten. Tip: Message::toChatMessage(). Geen gesprek = lege lijst.
-        return [];
+        $conversation = $this->currentConversation();
+        if (null === $conversation) {
+            return [];
+        }
+
+        return array_map(static fn (Message $m): ChatMessage => $m->toChatMessage(), $conversation->getMessages());
     }
 
     public function append(ChatMessage ...$messages): void
     {
-        // TODO laag 2:
-        // 1. Neem het actieve gesprek, of maak een nieuwe Conversation en persist die.
-        // 2. Maak per ChatMessage een Message-entity: Message::fromChatMessage($conversation, $message).
-        // 3. Eén flush voor alles samen, en onthoud daarna het id van het gesprek in de sessie.
-        throw new \LogicException('Laag 2: implementeer DoctrineConversationStore::append()');
+        $conversation = $this->currentConversation();
+        if (null === $conversation) {
+            $conversation = new Conversation();
+            $this->entityManager->persist($conversation);
+        }
+
+        foreach ($messages as $message) {
+            Message::fromChatMessage($conversation, $message);
+        }
+
+        // Eén flush per unit of work: gesprek en berichten gaan samen naar de database.
+        $this->entityManager->flush();
+        $this->session()->set(self::SESSION_KEY, $conversation->getId());
     }
 
     public function clear(): void
     {
-        // TODO laag 2: vergeet het actieve gesprek in de sessie. Wat gebeurt er met de data in de database?
-        throw new \LogicException('Laag 2: implementeer DoctrineConversationStore::clear()');
+        // Let op: dit vergeet enkel welk gesprek actief is. De berichten blijven in de database (zie laag 6).
+        $this->session()->remove(self::SESSION_KEY);
     }
 
     private function currentConversation(): ?Conversation
