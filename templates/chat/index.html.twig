@@ -19,6 +19,12 @@
     <section class="chat__messages" aria-live="polite">
         {% for message in messages %}
             <article class="message message--{{ message.role.value }}">
+                {% for call in message.reply.toolCalls|default([]) %}
+                    <details class="toolcall">
+                        <summary>🔧 {{ call.name }}({{ call.input|json_encode }})</summary>
+                        <pre>{{ call.result }}</pre>
+                    </details>
+                {% endfor %}
                 <p class="message__text">{{ message.content|nl2br }}</p>
                 {% if message.reply %}
                     <footer class="message__meta">

@@ -6,6 +6,7 @@ namespace App\Tests\Controller;
 
 use App\Ai\ChatModel;
 use App\Ai\Role;
+use App\Ai\ToolCall;
 use App\Entity\Message;
 use App\Tests\Fake\FakeChatModel;
 use Doctrine\ORM\EntityManagerInterface;
@@ -70,6 +71,18 @@ final class ChatTest extends WebTestCase
         self::assertSame(Role::Assistant, $secondCall[1]->role);
         self::assertSame('Hallo, ik ben de fake.', $secondCall[1]->content);
         self::assertSame('Tweede vraag', $secondCall[2]->content);
+    }
+
+    public function testToolCallsAreShownWithTheAnswer(): void
+    {
+        $this->model->toolCalls = [new ToolCall('search_games', ['genre' => 'party'], '[{"title":"Among Us"}]')];
+
+        $this->client->request('GET', '/');
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Iets voor een feestje?']);
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('.toolcall summary', 'search_games({"genre":"party"})');
+        self::assertSelectorTextContains('.toolcall pre', 'Among Us');
     }
 
     public function testBlankQuestionIsRejected(): void
