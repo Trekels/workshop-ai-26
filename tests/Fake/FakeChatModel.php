@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Fake;
 
+use App\Ai\ChatMessage;
 use App\Ai\ChatModel;
 use App\Ai\ChatReply;
 
@@ -12,17 +13,17 @@ use App\Ai\ChatReply;
  */
 final class FakeChatModel implements ChatModel
 {
-    /** @var list<string> */
-    public array $receivedQuestions = [];
+    /** @var list<list<ChatMessage>> */
+    public array $receivedHistories = [];
 
     public function __construct(
         private readonly string $answer = 'Dit is een testantwoord.',
     ) {
     }
 
-    public function reply(string $systemPrompt, string $question): ChatReply
+    public function reply(string $systemPrompt, array $history): ChatReply
     {
-        $this->receivedQuestions[] = $question;
+        $this->receivedHistories[] = $history;
 
         return new ChatReply(
             text: $this->answer,

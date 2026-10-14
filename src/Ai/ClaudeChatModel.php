@@ -19,12 +19,12 @@ final class ClaudeChatModel implements ChatModel
     ) {
     }
 
-    public function reply(string $systemPrompt, string $question): ChatReply
+    public function reply(string $systemPrompt, array $history): ChatReply
     {
-        // Dit is de hele "magie": één HTTP-call met een system prompt en de vraag.
+        // Laag 2: niet langer één vraag, maar de hele geschiedenis. De API kent geen sessies.
         $message = $this->client->messages->create(
             maxTokens: self::MAX_TOKENS,
-            messages: [['role' => 'user', 'content' => $question]],
+            messages: array_map(static fn (ChatMessage $m): array => $m->toApi(), $history),
             model: $this->model,
             system: $systemPrompt,
         );

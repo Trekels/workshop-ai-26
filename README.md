@@ -25,7 +25,7 @@ php bin/console doctrine:migrations:migrate -n   # SQLite in var/, met de tabell
 php -S 127.0.0.1:8000 -t public                  # of: symfony serve -d
 ```
 
-Open daarna http://127.0.0.1:8000.
+Open daarna http://127.0.0.1:8000. De database is SQLite en wordt automatisch aangemaakt in `var/`.
 
 ### Windows met Laragon
 
@@ -65,6 +65,21 @@ kennismaking met wat een call kost.
 Klaar? Verwijder dan ook het `ignoreErrors`-blok onderaan `phpstan.dist.neon`, dat
 bestond alleen voor de lege stub.
 
+## Opdracht laag 2: geef de chat een geheugen
+
+Vertrekpunt: `git checkout layer-2-start`. De entities `Conversation` en `Message` staan al klaar
+sinds `main`, de UI toont het hele gesprek en heeft een knop "Nieuw gesprek".
+Maar stuur een vraag en je krijgt weer een `LogicException`. Je doel: een gesprek dat
+over meerdere vragen heen blijft lopen, en `composer test` groen (3 van de 5 tests zijn rood).
+
+1. `src/Chat/DoctrineConversationStore.php`: het geheugen zelf. `messages()`, `append()` en
+   `clear()`. De sessie onthoudt enkel het id van het actieve gesprek, de berichten staan in SQLite.
+2. `src/Chat/ChatService.php` → `ask()`: het model is stateless. Het "herinnert" zich niets,
+   dus jij stuurt de volledige geschiedenis mee bij elke call. Kijk daarna naar de input-tokens
+   onder elk antwoord: die groeien met elke beurt. Daar gaat laag 4 over.
+
+Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
+
 ## Kwaliteitschecks
 
 ```bash
@@ -76,17 +91,17 @@ composer test      # phpunit
 ## Waar zit wat
 
 - `src/Ai/` – het gesprek met het model: `ChatModel` (interface), `ClaudeChatModel` (de SDK-call)
-- `src/Chat/ChatService.php` – de system prompt en de gesprekslogica (in laag 1 nog zonder geheugen)
+- `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen) en `ConversationStore` (het geheugen, in SQLite)
 - `src/Entity/` + `migrations/` – `Conversation`, `Message` en `Game`: de database voor álle lagen staat al klaar,
   ORM-mapping typen is niet de les. Vanaf laag 2 gebruiken we ze; `src/Ai/ChatMessage.php` en `ToolCall.php` ook
-- `src/Controller/Chat/` – één controller per route (`Index`, `Send`)
+- `src/Controller/Chat/` – één controller per route (`Index`, `Send`, `Reset`)
 - `templates/chat/` – de UI, met per antwoord het tokenverbruik
 - `tests/` – `FakeChatModel` vervangt Claude, zodat tests geen key of netwerk nodig hebben
 
 ## Voor de docent: branches en stacked PR's
 
 - `main` = startpunt voor studenten, met de TODO-stubs.
-- `laag-1-chat` vertrekt van `main` en bevat de oplossing van de opdracht.
-- Elke volgende laag vertrekt van de vorige: `laag-2-memory` van `laag-1-chat`, enzovoort.
+- `layer-1-chat` vertrekt van `main` en bevat de oplossing van de opdracht.
+- Elke volgende laag vertrekt van de vorige: `layer-2-memory` van `layer-1-chat`, enzovoort.
 - Open per laag een PR naar de vorige branch (stacked). De PR-diff toont dan precies
   wat die laag toevoegt, handig om tijdens het seminarie door te lopen.

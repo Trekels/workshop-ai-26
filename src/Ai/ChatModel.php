@@ -9,5 +9,8 @@ namespace App\Ai;
  */
 interface ChatModel
 {
-    public function reply(string $systemPrompt, string $question): ChatReply;
+    /**
+     * @param list<ChatMessage> $history de volledige geschiedenis, de nieuwe vraag als laatste
+     */
+    public function reply(string $systemPrompt, array $history): ChatReply;
 }
