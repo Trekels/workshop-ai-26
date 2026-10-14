@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use Anthropic\Client;
+use Anthropic\Messages\MessageParam;
 use Anthropic\Messages\RedactedThinkingBlock;
 use Anthropic\Messages\RedactedThinkingBlockParam;
 use Anthropic\Messages\TextBlock;
@@ -12,6 +13,7 @@ use Anthropic\Messages\TextBlockParam;
 use Anthropic\Messages\ThinkingBlock;
 use Anthropic\Messages\ThinkingBlockParam;
 use Anthropic\Messages\Tool as ToolDefinition;
+use Anthropic\Messages\ToolResultBlockParam;
 use Anthropic\Messages\ToolUseBlock;
 use Anthropic\Messages\ToolUseBlockParam;
 use App\Ai\Tool\Tool;
@@ -27,7 +29,7 @@ final class ClaudeChatModel implements ChatModel
     private readonly array $tools;
 
     /**
-     * @param iterable<Tool> $tools alle services die Tool implementeren, dankzij de tag op de interface
+     * @param iterable<Tool> $tools
      */
     public function __construct(
         private readonly Client $client,
@@ -45,26 +47,48 @@ final class ClaudeChatModel implements ChatModel
 
     public function reply(string $systemPrompt, array $history): ChatReply
     {
-        // TODO laag 3: maak hier een lus van.
-        //
-        // 1. Geef `tools: $this->toolDefinitions()` mee aan messages->create().
-        // 2. Is $message->stopReason gelijk aan 'tool_use'? Dan wil het model een tool. Voor elke
-        //    Anthropic\Messages\ToolUseBlock in $message->content:
-        //      - zoek de tool op naam in $this->tools en roep ->call($block->input) aan,
-        //      - onthoud de aanroep als ToolCall (voor de UI),
-        //      - maak een ToolResultBlockParam::with(toolUseID: $block->id, content: $resultaat).
-        // 3. Voeg twee berichten toe aan $messages: de assistant-beurt (alle blokken uit het antwoord,
-        //    via self::toParam) en een user-beurt met de tool_result-blokken. Vraag dan opnieuw.
-        // 4. Stop als stopReason iets anders is dan 'tool_use'. Tel de tokens van alle rondes op en
-        //    geef de ToolCalls mee in de ChatReply. Begrens de lus met MAX_TOOL_ROUNDS.
         $messages = array_map(static fn (ChatMessage $m): array => $m->toApi(), $history);
+        $toolCalls = [];
+        $inputTokens = 0;
+        $outputTokens = 0;
 
-        $message = $this->client->messages->create(
-            maxTokens: self::MAX_TOKENS,
-            messages: $messages,
-            model: $this->model,
-            system: $systemPrompt,
-        );
+        // De lus: zolang het model een tool wil, voeren wíj die uit en sturen we het resultaat terug.
+        for ($round = 0;; ++$round) {
+            $message = $this->client->messages->create(
+                maxTokens: self::MAX_TOKENS,
+                messages: $messages,
+                model: $this->model,
+                system: $systemPrompt,
+                tools: $this->toolDefinitions(),
+            );
+            $inputTokens += $message->usage->inputTokens;
+            $outputTokens += $message->usage->outputTokens;
+
+            if ('tool_use' !== $message->stopReason) {
+                break;
+            }
+            if ($round >= self::MAX_TOOL_ROUNDS) {
+                throw new \RuntimeException('Het model bleef tools aanvragen, lus afgebroken.');
+            }
+
+            $results = [];
+            foreach ($message->content as $block) {
+                if (!$block instanceof ToolUseBlock) {
+                    continue;
+                }
+                $tool = $this->tools[$block->name] ?? throw new \LogicException("Onbekende tool: {$block->name}");
+                $result = $tool->call($block->input);
+                $toolCalls[] = new ToolCall($block->name, $block->input, $result);
+                $results[] = ToolResultBlockParam::with(toolUseID: $block->id, content: $result);
+            }
+
+            // De volledige assistant-beurt (incl. tool_use- en thinking-blokken) én alle resultaten gaan samen terug.
+            $messages[] = MessageParam::with(
+                content: array_map(self::toParam(...), $message->content),
+                role: 'assistant',
+            );
+            $messages[] = MessageParam::with(content: $results, role: 'user');
+        }
 
         $text = '';
         foreach ($message->content as $block) {
@@ -81,8 +105,9 @@ final class ClaudeChatModel implements ChatModel
             text: $text,
             model: $message->model,
             stopReason: $message->stopReason,
-            inputTokens: $message->usage->inputTokens,
-            outputTokens: $message->usage->outputTokens,
+            inputTokens: $inputTokens,
+            outputTokens: $outputTokens,
+            toolCalls: $toolCalls,
         );
     }
 

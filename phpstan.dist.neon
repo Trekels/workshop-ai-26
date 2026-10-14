@@ -12,13 +12,3 @@ parameters:
         - tests/bootstrap.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
-
-    # Opdracht laag 3: de TODO-stubs gebruiken hun dependencies nog niet.
-    # Verwijder dit blok zodra ClaudeChatModel::reply() en SearchGamesTool::call() af zijn.
-    ignoreErrors:
-        -
-            identifiers: [classConstant.unused, method.unused]
-            path: src/Ai/ClaudeChatModel.php
-        -
-            identifiers: [property.onlyWritten, method.unused]
-            path: src/Ai/Tool/SearchGamesTool.php
