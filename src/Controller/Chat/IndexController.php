@@ -18,6 +18,7 @@ final class IndexController extends AbstractController
     {
         return $this->render('chat/index.html.twig', [
             'messages' => $store->messages(),
+            'summary' => $store->summary(),
             'form' => $this->createForm(ChatInputType::class, new ChatInput()),
         ]);
     }

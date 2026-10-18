@@ -52,6 +52,11 @@ final class ClaudeChatModel implements ChatModel
         $inputTokens = 0;
         $outputTokens = 0;
 
+        // TODO laag 4, stap 1: prompt caching.
+        // Geef cacheControl: CacheControlEphemeral::with() mee aan de call hieronder, en tel per ronde
+        // $message->usage->cacheReadInputTokens en cacheCreationInputTokens op (beide nullable), zodat ze
+        // via ChatReply in de UI terechtkomen.
+
         // De lus: zolang het model een tool wil, voeren wíj die uit en sturen we het resultaat terug.
         for ($round = 0;; ++$round) {
             $message = $this->client->messages->create(

@@ -20,6 +20,7 @@ final class ChatService
     public function __construct(
         private readonly ChatModel $model,
         private readonly ConversationStore $store,
+        private readonly HistoryCompactor $compactor,
     ) {
     }
 
@@ -28,11 +29,26 @@ final class ChatService
         $userMessage = ChatMessage::user($question);
 
         // Het model is stateless: alles wat het over dit gesprek "weet", sturen wij zelf mee.
-        $reply = $this->model->reply(self::SYSTEM_PROMPT, [...$this->store->messages(), $userMessage]);
+        $reply = $this->model->reply($this->systemPrompt(), [...$this->store->messages(), $userMessage]);
 
         // Pas opslaan na een geslaagde call, anders blijft een vraag zonder antwoord achter.
         $this->store->append($userMessage, ChatMessage::assistant($reply));
 
+        // Groeit de context te hard, dan maken we hem nu kleiner voor de volgende vraag.
+        $this->compactor->compactIfNeeded($reply);
+
         return $reply;
+    }
+
+    private function systemPrompt(): string
+    {
+        $summary = $this->store->summary();
+        if (null === $summary) {
+            return self::SYSTEM_PROMPT;
+        }
+
+        // De samenvatting vervangt de gecompacteerde berichten. Ze wijzigt enkel bij een compaction,
+        // en dan verandert de geschiedenis toch al, dus de prompt cache blijft daartussen bruikbaar.
+        return self::SYSTEM_PROMPT."\n\nSamenvatting van het eerdere deel van dit gesprek:\n".$summary;
     }
 }

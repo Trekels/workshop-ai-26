@@ -99,6 +99,31 @@ beschrijving eens aan en kijk wat er gebeurt. Wie klaar is: de SDK heeft ook
 
 Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
 
+## Opdracht laag 4: hou de context klein (en goedkoop)
+
+Vertrekpunt: `git checkout layer-4-start`. Stel een paar vragen na elkaar en kijk naar "Context bij het
+laatste antwoord": elke vraag stuurt de volledige geschiedenis mee, dus de prompt groeit en groeit.
+Twee remedies, van goedkoop naar ingrijpend.
+
+1. **Prompt caching** in `src/Ai/ClaudeChatModel.php` → `reply()`: geef `cacheControl` mee aan de call.
+   De API cachet dan het stuk van de prompt dat niet verandert (tools, system prompt, oudere berichten)
+   en rekent dat bij de volgende vraag aan 10% van de prijs aan. Lees `cacheReadInputTokens` en
+   `cacheCreationInputTokens` uit `usage` en geef ze door via `ChatReply`: vanaf nu zie je in de UI
+   wat uit de cache kwam. Let op: `inputTokens` is dan enkel nog het ongecachte stuk, vandaar
+   `ChatReply::promptTokens()`.
+2. **Compaction** in `src/Chat/HistoryCompactor.php` → `compactIfNeeded()`: komt de prompt boven
+   `CHAT_COMPACT_AFTER_TOKENS` (zie `.env.dist`), laat het model dan de oudste berichten samenvatten en
+   stuur daarna enkel nog die samenvatting plus de laatste vier berichten mee. `ConversationStore::compact()`
+   en de UI (het 📦-blokje) staan klaar. De test `testLongConversationIsCompactedIntoASummary` zegt
+   wanneer het klopt. Zet de drempel laag (bv. 1500) om het live te zien gebeuren.
+
+Caching maakt de prompt niet kleiner, enkel goedkoper, en een samenvatting is nooit gratis: het is
+een extra call, en het model vergeet details. Kijk na een compaction eens wat er nog in de samenvatting
+staat en wat niet. De API kan dit ook server-side (compaction en context editing, beide beta); de
+logica is dezelfde, maar dan zie je ze niet meer.
+
+Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
+
 ## Kwaliteitschecks
 
 ```bash
@@ -110,12 +135,13 @@ composer test      # phpunit
 ## Waar zit wat
 
 - `src/Ai/` – het gesprek met het model: `ChatModel` (interface), `ClaudeChatModel` (de SDK-call)
-- `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen) en `ConversationStore` (het geheugen, in SQLite)
+- `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen), `ConversationStore` (het geheugen, in SQLite)
+  en `HistoryCompactor` (samenvatten als de context te groot wordt)
 - `src/Ai/Tool/` – `Tool` (interface) en `SearchGamesTool`: code die het model mag aanvragen
 - `src/Entity/` + `migrations/` – `Conversation`, `Message` en `Game`: de database voor álle lagen staat al klaar,
   ORM-mapping typen is niet de les. Vanaf laag 2 gebruiken we ze; `src/Ai/ChatMessage.php` en `ToolCall.php` ook
 - `src/Controller/Chat/` – één controller per route (`Index`, `Send`, `Reset`)
-- `templates/chat/` – de UI, met per antwoord het tokenverbruik
+- `templates/chat/` – de UI, met per antwoord het tokenverbruik (en wat uit de cache kwam)
 - `tests/` – `FakeChatModel` vervangt Claude, zodat tests geen key of netwerk nodig hebben
 
 ## Voor de docent: branches en stacked PR's
