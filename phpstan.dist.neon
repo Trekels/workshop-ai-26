@@ -12,7 +12,3 @@ parameters:
         - tests/bootstrap.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
-    ignoreErrors:
-        -
-            identifiers: [classConstant.unused, property.onlyWritten]
-            path: src/Chat/HistoryCompactor.php

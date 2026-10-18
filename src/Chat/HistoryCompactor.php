@@ -40,12 +40,33 @@ final class HistoryCompactor
      */
     public function compactIfNeeded(ChatReply $lastReply): void
     {
-        // TODO laag 4, stap 2: compaction.
-        // 1. Niets doen zolang $lastReply->promptTokens() onder $this->compactAfterTokens blijft,
-        //    of zolang er niet meer dan KEEP_RECENT berichten zijn.
-        // 2. Neem alle berichten behalve de laatste KEEP_RECENT (array_slice) en laat het model ze
-        //    samenvatten: $this->model->reply(SUMMARY_PROMPT, [...$oud, ChatMessage::user('Vat ... samen.')]).
-        //    Is er al een samenvatting (store->summary()), geef die dan mee zodat ze niet verloren gaat.
-        // 3. $this->store->compact($samenvatting, self::KEEP_RECENT).
+        if ($lastReply->promptTokens() < $this->compactAfterTokens) {
+            return;
+        }
+
+        $messages = $this->store->messages();
+        if (\count($messages) <= self::KEEP_RECENT) {
+            return;
+        }
+
+        // Een samenvatting is een gewone call: het model krijgt de oude berichten en antwoordt met de samenvatting.
+        $old = \array_slice($messages, 0, -self::KEEP_RECENT);
+        $summary = $this->model->reply($this->summaryPrompt(), [
+            ...$old,
+            ChatMessage::user('Vat het gesprek hierboven samen.'),
+        ]);
+
+        $this->store->compact($summary->text, self::KEEP_RECENT);
+    }
+
+    private function summaryPrompt(): string
+    {
+        $previous = $this->store->summary();
+        if (null === $previous) {
+            return self::SUMMARY_PROMPT;
+        }
+
+        // Anders verliezen we bij een tweede compaction wat in de eerste samenvatting zat.
+        return self::SUMMARY_PROMPT."\n\nDit was al samengevat, neem het mee in de nieuwe samenvatting:\n".$previous;
     }
 }
