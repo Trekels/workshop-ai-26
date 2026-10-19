@@ -13,11 +13,24 @@ final class PiiRedactor
     public const string EMAIL = '[e-mail]';
     public const string PHONE = '[telefoon]';
 
+    /**
+     * Iets wat op een e-mailadres lijkt: tekens, een @, een domein met minstens één punt.
+     */
+    private const string EMAIL_PATTERN = '/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/u';
+
+    /**
+     * Belgische nummers: 0470 12 34 56, 0470/12.34.56, 02 123 45 67, +32 470 12 34 56. Begint met 0 of +landcode,
+     * daarna 8 tot 10 cijfers met eventueel een spatie, punt, slash of streepje ertussen. Niet voorafgegaan
+     * door een cijfer of letter, zodat "versie 1.0" en "Jackbox 9" met rust gelaten worden.
+     */
+    private const string PHONE_PATTERN = '/(?<![\w\/.])(?:\+\d{2}\s?|0)\d(?:[\s.\/-]?\d){7,9}(?!\w)/';
+
     public function redact(string $text): string
     {
-        // TODO laag 5: vervang e-mailadressen door self::EMAIL en telefoonnummers door self::PHONE.
-        // Twee preg_replace()-calls volstaan. De tests in tests/Chat/PiiRedactorTest.php zeggen welke vormen
-        // je minstens moet herkennen, en wat je vooral níét mag kapotmaken ("Portal 2", "onder 20 euro").
-        return $text;
+        $text = preg_replace(self::EMAIL_PATTERN, self::EMAIL, $text)
+            ?? throw new \RuntimeException('E-mailpatroon faalt');
+
+        return preg_replace(self::PHONE_PATTERN, self::PHONE, $text)
+            ?? throw new \RuntimeException('Telefoonpatroon faalt');
     }
 }
