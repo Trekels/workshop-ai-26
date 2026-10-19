@@ -21,12 +21,14 @@ final class ChatService
         private readonly ChatModel $model,
         private readonly ConversationStore $store,
         private readonly HistoryCompactor $compactor,
+        private readonly PiiRedactor $redactor,
     ) {
     }
 
     public function ask(string $question): ChatReply
     {
-        $userMessage = ChatMessage::user($question);
+        // Alles wat hieronder gebeurt, vertrekt naar een externe partij. Wat er niet in moet, halen we er eerst uit.
+        $userMessage = ChatMessage::user($this->redactor->redact($question));
 
         // Het model is stateless: alles wat het over dit gesprek "weet", sturen wij zelf mee.
         $reply = $this->model->reply($this->systemPrompt(), [...$this->store->messages(), $userMessage]);

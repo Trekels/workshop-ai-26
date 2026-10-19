@@ -27,3 +27,10 @@ services:
     Anthropic\Client:
         arguments:
             $apiKey: '%env(ANTHROPIC_API_KEY)%'
+
+    # Laag 5: var/log/ai.log leesbaar houden, één blok per call in plaats van één lange regel.
+    monolog.formatter.ai:
+        class: Monolog\Formatter\LineFormatter
+        arguments:
+            $format: "[%%datetime%%] %%message%%\n\n"
+            $allowInlineLineBreaks: true
