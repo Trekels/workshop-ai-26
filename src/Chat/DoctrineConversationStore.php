@@ -83,6 +83,18 @@ final class DoctrineConversationStore implements ConversationStore
         $this->session()->remove(self::SESSION_KEY);
     }
 
+    public function delete(): void
+    {
+        $conversation = $this->currentConversation();
+        if (null !== $conversation) {
+            // Enkel dit gesprek. De berichten gaan mee door de cascade op Conversation::$messages.
+            $this->entityManager->remove($conversation);
+            $this->entityManager->flush();
+        }
+
+        $this->clear();
+    }
+
     private function currentConversation(): ?Conversation
     {
         $id = $this->session()->get(self::SESSION_KEY);

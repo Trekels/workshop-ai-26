@@ -29,7 +29,13 @@ interface ConversationStore
     public function compact(string $summary, int $keepRecent): void;
 
     /**
-     * Start een nieuw, leeg gesprek.
+     * Start een nieuw, leeg gesprek. De data van het oude gesprek blijft bestaan.
      */
     public function clear(): void;
+
+    /**
+     * Wist het actieve gesprek definitief: berichten, samenvatting en het gesprek zelf. Daarna is het alsof het
+     * nooit bestaan heeft, ook voor ons.
+     */
+    public function delete(): void;
 }

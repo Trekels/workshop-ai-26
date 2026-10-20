@@ -155,6 +155,31 @@ je "het even te checken". Een groter model helpt, maar daar bouw je niet op.
 Data-minimalisatie is geen beleefdheid maar een GDPR-principe, en het is de brug naar laag 6: wat je
 niet verstuurt, hoef je ook niet te beschermen, te bewaren of te wissen.
 
+## Opdracht laag 6: de data heeft een eigenaar
+
+Vertrekpunt: `git checkout layer-6-start`. Sinds laag 2 laat "Nieuw gesprek" de rijen bewust staan, en sinds
+laag 4 staat er ook een samenvatting van je gesprek in de database. Dat is persoonsdata, ook zonder naam erin.
+De AVG vraagt drie dingen die je hier concreet bouwt: de gebruiker mag wissen, wij bewaren niet eeuwig, en we
+zeggen wat we doen. Het derde staat al: lees de regel onder het invoerveld. Die komt uit `templates/chat/index.html.twig`
+met twee Twig-globals uit `config/packages/twig.yaml`.
+
+1. **Recht op wissen.** De knop "Wis mijn gesprek" en `DeleteController` bestaan al, maar
+   `DoctrineConversationStore::delete()` gooit nog een `LogicException`. Implementeer ze: het actieve gesprek
+   verwijderen (de berichten gaan mee via de cascade op `Conversation::$messages`), flushen, sessie vergeten.
+   Enkel het eigen gesprek: `testDeletingTheConversationRemovesOnlyMyRowsFromTheDatabase` plant een gesprek van
+   iemand anders en controleert dat dat blijft staan.
+2. **Bewaartermijn.** `src/Command/PurgeConversationsCommand.php` → `__invoke()`: gesprekken ouder dan
+   `CHAT_RETENTION_DAYS` (zie `.env.dist`) wissen. Gebruik `$this->clock` voor "nu", niet `new \DateTimeImmutable()`:
+   de test in `tests/Command/` zet de klok 31 dagen vooruit om te zien of het werkt. Draai hem daarna zelf:
+   `php bin/console app:conversations:purge`. In productie hangt dit aan cron of Symfony Scheduler.
+
+Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
+
+Wat je niet gebouwd hebt, maar wel moet weten: `var/log/ai.log` uit laag 5 bevat dezelfde gesprekken en valt onder
+dezelfde bewaartermijn (rotating logs, of niet loggen wat je niet nodig hebt). En de data die naar Anthropic
+vertrok, wis jij niet; wat daar mee gebeurt, staat in hun verwerkersovereenkomst. Daarom was laag 5 de belangrijkste
+GDPR-laag: wat je niet verstuurt, hoef je nergens te laten wissen.
+
 ## Kwaliteitschecks
 
 ```bash
@@ -172,7 +197,8 @@ composer test      # phpunit
 - `src/Ai/Tool/` – `Tool` (interface) en `SearchGamesTool`: code die het model mag aanvragen
 - `src/Entity/` + `migrations/` – `Conversation`, `Message` en `Game`: de database voor álle lagen staat al klaar,
   ORM-mapping typen is niet de les. Vanaf laag 2 gebruiken we ze; `src/Ai/ChatMessage.php` en `ToolCall.php` ook
-- `src/Controller/Chat/` – één controller per route (`Index`, `Send`, `Reset`)
+- `src/Controller/Chat/` – één controller per route (`Index`, `Send`, `Reset`, `Delete`)
+- `src/Command/PurgeConversationsCommand.php` – de bewaartermijn, voor cron of Scheduler
 - `templates/chat/` – de UI, met per antwoord het tokenverbruik (en wat uit de cache kwam)
 - `tests/` – `FakeChatModel` vervangt Claude, zodat tests geen key of netwerk nodig hebben
 

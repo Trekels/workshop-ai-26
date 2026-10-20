@@ -6,14 +6,23 @@
 <main class="chat">
     <header class="chat__header">
         <h1>Workshop AI</h1>
-        <form method="post" action="{{ path('chat_reset') }}">
-            <input type="hidden" name="_token" value="{{ csrf_token('chat_reset') }}">
-            <button type="submit" class="button button--ghost">Nieuw gesprek</button>
-        </form>
+        <div class="chat__actions">
+            <form method="post" action="{{ path('chat_reset') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('chat_reset') }}">
+                <button type="submit" class="button button--ghost">Nieuw gesprek</button>
+            </form>
+            <form method="post" action="{{ path('chat_delete') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('chat_delete') }}">
+                <button type="submit" class="button button--ghost">Wis mijn gesprek</button>
+            </form>
+        </div>
     </header>
 
     {% for message in app.flashes('error') %}
         <p class="flash flash--error">{{ message }}</p>
+    {% endfor %}
+    {% for message in app.flashes('info') %}
+        <p class="flash flash--info">{{ message }}</p>
     {% endfor %}
 
     {# Wat hieronder staat, is exact wat het model bij de volgende vraag te zien krijgt. #}
@@ -62,5 +71,11 @@
         {{ form_row(form.message) }}
         <button type="submit" class="button">Verstuur</button>
     {{ form_end(form) }}
+
+    {# Transparantie (AVG art. 13): wie verwerkt wat, en hoelang. Eén zin, op de plek waar de data vertrekt. #}
+    <p class="chat__notice">
+        Je vraag gaat naar Anthropic ({{ claude_model }}). E-mailadressen en telefoonnummers maskeren we vóór verzending.
+        Gesprekken wissen we automatisch na {{ chat_retention_days }} dagen, of meteen via "Wis mijn gesprek".
+    </p>
 </main>
 {% endblock %}

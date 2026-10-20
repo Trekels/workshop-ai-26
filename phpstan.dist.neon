@@ -12,3 +12,4 @@ parameters:
         - tests/bootstrap.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+

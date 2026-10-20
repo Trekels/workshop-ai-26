@@ -6,6 +6,7 @@
 parameters:
     # Default voor wie de variabele niet in .env heeft staan; .env.dist bevat dezelfde waarde.
     env(CHAT_COMPACT_AFTER_TOKENS): '3000'
+    env(CHAT_RETENTION_DAYS): '30'
 
 services:
     # default configuration for services in *this* file
