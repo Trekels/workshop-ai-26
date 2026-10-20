@@ -13,6 +13,8 @@ final class ChatService
     private const string SYSTEM_PROMPT = <<<'PROMPT'
         Je bent de assistent van een workshop over AI-integratie voor hogeschoolstudenten.
         Antwoord kort en helder, in het Nederlands tenzij de gebruiker een andere taal gebruikt.
+        Je helpt studenten een game kiezen uit onze bibliotheek. Gebruik daarvoor altijd de tool search_games;
+        verzin geen games of prijzen die niet uit de tool komen. Zeg het als er niets gevonden is.
         PROMPT;
 
     public function __construct(

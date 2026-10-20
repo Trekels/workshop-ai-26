@@ -8,7 +8,7 @@ en een tag `layer-N-start` met het vertrekpunt van de opdracht (`git checkout la
 |------|--------|-----------|
 | 1 | `layer-1-chat` | Chat: één vraag, één antwoord, geen geheugen |
 | 2 | `layer-2-memory` | Geheugen: geschiedenis meesturen, gesprekken in de database, memory tool |
-| 3 | `layer-3-tools` | Tools: het model mag code van ons oproepen |
+| 3 | `layer-3-tools` | Tools: het model zoekt zelf in onze gamebibliotheek |
 | 4 | `layer-4-compression` | Tokens, caching, compaction |
 | 5 | `layer-5-data-safety` | Prompt injection, logging, wat verlaat je server |
 | 6 | `layer-6-gdpr` | Wissen, bewaartermijn, transparantie |
@@ -80,6 +80,25 @@ over meerdere vragen heen blijft lopen, en `composer test` groen (3 van de 5 tes
 
 Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
 
+## Opdracht laag 3: geef het model een tool
+
+Vertrekpunt: `git checkout layer-3-start`. De tabel `game` met 16 games zit al in de database sinds
+`main`. Vraag "iets gratis voor vier man?" en het model kan enkel gokken: het kent onze
+bibliotheek niet. Je doel: het model zoekt zélf in de database, en je ziet elke tool-call in de UI.
+
+1. `src/Ai/Tool/SearchGamesTool.php` → `call()`: de tool zelf. Het model stuurt een input-array
+   (zie `inputSchema()`), jij vertaalt die naar `GameRepository::search()` en geeft JSON terug.
+   De tests in `tests/Ai/Tool/SearchGamesToolTest.php` vertellen je wanneer het klopt.
+2. `src/Ai/ClaudeChatModel.php` → `reply()`: de lus. Stuur de tooldefinities mee, en zolang
+   `stopReason` gelijk is aan `tool_use`: voer elke `ToolUseBlock` uit, stuur de assistant-beurt
+   plus de `tool_result`-blokken terug, en vraag opnieuw. Het model voert nooit zelf iets uit.
+
+Het model beslist zelf wanneer het de tool gebruikt op basis van `description()`. Pas die
+beschrijving eens aan en kijk wat er gebeurt. Wie klaar is: de SDK heeft ook
+`$client->beta->messages->toolRunner()`, die precies deze lus voor je doet.
+
+Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
+
 ## Kwaliteitschecks
 
 ```bash
@@ -92,6 +111,7 @@ composer test      # phpunit
 
 - `src/Ai/` – het gesprek met het model: `ChatModel` (interface), `ClaudeChatModel` (de SDK-call)
 - `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen) en `ConversationStore` (het geheugen, in SQLite)
+- `src/Ai/Tool/` – `Tool` (interface) en `SearchGamesTool`: code die het model mag aanvragen
 - `src/Entity/` + `migrations/` – `Conversation`, `Message` en `Game`: de database voor álle lagen staat al klaar,
   ORM-mapping typen is niet de les. Vanaf laag 2 gebruiken we ze; `src/Ai/ChatMessage.php` en `ToolCall.php` ook
 - `src/Controller/Chat/` – één controller per route (`Index`, `Send`, `Reset`)
