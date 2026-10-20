@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Entity\Conversation;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -28,10 +29,20 @@ final class PurgeConversationsCommand
 
     public function __invoke(SymfonyStyle $io): int
     {
-        // TODO laag 6: bereken de grensdatum (nu min de bewaartermijn, via $this->clock zodat de test de tijd kan
-        // verzetten), zoek de gesprekken met een createdAt ouder dan die grens, verwijder ze (Doctrine neemt de
-        // berichten mee) met één flush, en meld hoeveel er weg zijn. De test in tests/Command/ zegt of het klopt.
-        throw new \LogicException('Nog niet geïmplementeerd: zie README, opdracht laag 6.');
+        // De klok injecteren in plaats van new \DateTimeImmutable(): zo kan de test "31 dagen later" simuleren.
+        $cutoff = $this->clock->now()->modify(sprintf('-%d days', $this->retentionDays));
+
+        /** @var list<Conversation> $expired */
+        $expired = $this->entityManager->createQuery(
+            'SELECT c FROM App\\Entity\\Conversation c WHERE c.createdAt < :cutoff',
+        )->setParameter('cutoff', $cutoff)->getResult();
+
+        foreach ($expired as $conversation) {
+            $this->entityManager->remove($conversation);
+        }
+        $this->entityManager->flush();
+
+        $io->success(sprintf('%d gesprekken gewist (ouder dan %d dagen).', \count($expired), $this->retentionDays));
 
         return Command::SUCCESS;
     }

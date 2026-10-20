@@ -13,10 +13,3 @@ parameters:
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
 
-    # Opdracht laag 6: de TODO-stub gebruikt zijn dependencies nog niet.
-    # Verwijder dit blok zodra PurgeConversationsCommand af is.
-    ignoreErrors:
-        -
-            identifiers: [property.onlyWritten, deadCode.unreachable]
-            paths:
-                - src/Command/PurgeConversationsCommand.php

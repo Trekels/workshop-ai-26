@@ -85,10 +85,14 @@ final class DoctrineConversationStore implements ConversationStore
 
     public function delete(): void
     {
-        // TODO laag 6: het actieve gesprek uit de database verwijderen (Doctrine neemt de berichten mee via de
-        // cascade op Conversation::$messages) en daarna de sessie vergeten. Is er geen actief gesprek, dan is er
-        // niets te wissen. Enkel het eigen gesprek: de rijen van andere bezoekers blijven staan.
-        throw new \LogicException('Nog niet geïmplementeerd: zie README, opdracht laag 6.');
+        $conversation = $this->currentConversation();
+        if (null !== $conversation) {
+            // Enkel dit gesprek. De berichten gaan mee door de cascade op Conversation::$messages.
+            $this->entityManager->remove($conversation);
+            $this->entityManager->flush();
+        }
+
+        $this->clear();
     }
 
     private function currentConversation(): ?Conversation
