@@ -31,7 +31,10 @@ final class DoctrineConversationStore implements ConversationStore
             return [];
         }
 
-        return array_map(static fn (Message $m): ChatMessage => $m->toChatMessage(), $conversation->getMessages());
+        return array_map(
+            static fn (Message $m): ChatMessage => $m->toChatMessage(),
+            $this->activeMessages($conversation),
+        );
     }
 
     public function append(ChatMessage ...$messages): void
@@ -51,6 +54,29 @@ final class DoctrineConversationStore implements ConversationStore
         $this->session()->set(self::SESSION_KEY, $conversation->getId());
     }
 
+    public function summary(): ?string
+    {
+        return $this->currentConversation()?->getSummary();
+    }
+
+    public function compact(string $summary, int $keepRecent): void
+    {
+        $conversation = $this->currentConversation();
+        if (null === $conversation) {
+            return;
+        }
+
+        $conversation->setSummary($summary);
+
+        // De berichten blijven bestaan, ze gaan alleen niet meer mee naar het model.
+        $active = $this->activeMessages($conversation);
+        foreach (\array_slice($active, 0, -$keepRecent) as $message) {
+            $message->markCompacted();
+        }
+
+        $this->entityManager->flush();
+    }
+
     public function clear(): void
     {
         // Let op: dit vergeet enkel welk gesprek actief is. De berichten blijven in de database (zie laag 6).
@@ -62,6 +88,17 @@ final class DoctrineConversationStore implements ConversationStore
         $id = $this->session()->get(self::SESSION_KEY);
 
         return \is_int($id) ? $this->entityManager->find(Conversation::class, $id) : null;
+    }
+
+    /**
+     * @return list<Message>
+     */
+    private function activeMessages(Conversation $conversation): array
+    {
+        return array_values(array_filter(
+            $conversation->getMessages(),
+            static fn (Message $m): bool => !$m->isCompacted(),
+        ));
     }
 
     private function session(): SessionInterface

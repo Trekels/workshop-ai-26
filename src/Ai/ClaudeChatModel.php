@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use Anthropic\Client;
+use Anthropic\Messages\CacheControlEphemeral;
 use Anthropic\Messages\MessageParam;
 use Anthropic\Messages\RedactedThinkingBlock;
 use Anthropic\Messages\RedactedThinkingBlockParam;
@@ -51,10 +52,15 @@ final class ClaudeChatModel implements ChatModel
         $toolCalls = [];
         $inputTokens = 0;
         $outputTokens = 0;
+        $cacheReadTokens = 0;
+        $cacheCreationTokens = 0;
 
         // De lus: zolang het model een tool wil, voeren wíj die uit en sturen we het resultaat terug.
         for ($round = 0;; ++$round) {
+            // cacheControl op requestniveau: de API cachet alles tot het laatste blok, dus de volgende call
+            // leest tools, system prompt en de hele geschiedenis tot nu uit de cache (als die groot genoeg is).
             $message = $this->client->messages->create(
+                cacheControl: CacheControlEphemeral::with(),
                 maxTokens: self::MAX_TOKENS,
                 messages: $messages,
                 model: $this->model,
@@ -63,6 +69,8 @@ final class ClaudeChatModel implements ChatModel
             );
             $inputTokens += $message->usage->inputTokens;
             $outputTokens += $message->usage->outputTokens;
+            $cacheReadTokens += $message->usage->cacheReadInputTokens ?? 0;
+            $cacheCreationTokens += $message->usage->cacheCreationInputTokens ?? 0;
 
             if ('tool_use' !== $message->stopReason) {
                 break;
@@ -108,6 +116,8 @@ final class ClaudeChatModel implements ChatModel
             inputTokens: $inputTokens,
             outputTokens: $outputTokens,
             toolCalls: $toolCalls,
+            cacheReadTokens: $cacheReadTokens,
+            cacheCreationTokens: $cacheCreationTokens,
         );
     }
 

@@ -85,6 +85,70 @@ final class ChatTest extends WebTestCase
         self::assertSelectorTextContains('.toolcall pre', 'Among Us');
     }
 
+    public function testCacheUsageIsShownWithTheAnswer(): void
+    {
+        $this->model->inputTokens = 40;
+        $this->model->cacheReadTokens = 1500;
+
+        $this->client->request('GET', '/');
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Nog iets?']);
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('.message__meta', 'cache: 1500 gelezen');
+        self::assertSelectorTextContains('.chat__context', '1540 tokens');
+    }
+
+    public function testLongConversationIsCompactedIntoASummary(): void
+    {
+        // De prompt is groter dan de drempel (ook de gecachte tokens tellen mee), dus na het derde
+        // antwoord worden de oudste berichten samengevat.
+        $this->model->inputTokens = 100;
+        $this->model->cacheReadTokens = 999999;
+        $this->model->answerWith('Antwoord 1', 'Antwoord 2', 'Antwoord 3', 'SAMENVATTING: zoekt coop');
+
+        $this->client->request('GET', '/');
+        foreach (['Vraag 1', 'Vraag 2', 'Vraag 3'] as $question) {
+            $this->client->submitForm('Verstuur', ['chat_input[message]' => $question]);
+            $this->client->followRedirect();
+        }
+
+        // Drie gewone calls plus één samenvattingscall.
+        self::assertCount(4, $this->model->receivedHistories);
+        $summaryCall = $this->model->receivedHistories[3];
+        self::assertSame('Vraag 1', $summaryCall[0]->content, 'enkel het oudste paar wordt samengevat');
+        self::assertSame('Antwoord 1', $summaryCall[1]->content);
+        self::assertSame(Role::User, $summaryCall[2]->role, 'afgesloten met de vraag om samen te vatten');
+
+        self::assertSelectorTextContains('.summary', 'SAMENVATTING: zoekt coop');
+        self::assertSelectorTextNotContains('.chat__messages', 'Vraag 1');
+        self::assertSelectorTextContains('.chat__messages', 'Vraag 2');
+        self::assertCount(6, $this->entityManager->getRepository(Message::class)->findAll(), 'niets gewist');
+
+        // De volgende vraag krijgt de samenvatting in de system prompt en enkel de recente berichten mee.
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Vraag 4']);
+
+        $lastCall = $this->model->receivedHistories[4];
+        self::assertStringContainsString('SAMENVATTING: zoekt coop', $this->model->receivedSystemPrompts[4]);
+        self::assertSame(
+            ['Vraag 2', 'Antwoord 2', 'Vraag 3', 'Antwoord 3', 'Vraag 4'],
+            array_column($lastCall, 'content'),
+        );
+    }
+
+    public function testShortConversationIsNotCompacted(): void
+    {
+        $this->model->cacheReadTokens = 999999;
+
+        $this->client->request('GET', '/');
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Vraag 1']);
+        $this->client->followRedirect();
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Vraag 2']);
+        $this->client->followRedirect();
+
+        self::assertCount(2, $this->model->receivedHistories, 'te weinig berichten om samen te vatten');
+        self::assertSelectorNotExists('.summary');
+    }
+
     public function testBlankQuestionIsRejected(): void
     {
         $this->client->request('GET', '/');

@@ -16,6 +16,18 @@
         <p class="flash flash--error">{{ message }}</p>
     {% endfor %}
 
+    {# Wat hieronder staat, is exact wat het model bij de volgende vraag te zien krijgt. #}
+    {% set last = messages|last %}
+    {% if last and last.reply %}
+        <p class="chat__context">Context bij het laatste antwoord: {{ last.reply.promptTokens }} tokens</p>
+    {% endif %}
+    {% if summary %}
+        <details class="summary">
+            <summary>📦 Samenvatting van het eerdere deel van dit gesprek</summary>
+            <p>{{ summary|nl2br }}</p>
+        </details>
+    {% endif %}
+
     <section class="chat__messages" aria-live="polite">
         {% for message in messages %}
             <article class="message message--{{ message.role.value }}">
@@ -31,6 +43,10 @@
                         {{ message.reply.model }}
                         · in: {{ message.reply.inputTokens }} tokens
                         · uit: {{ message.reply.outputTokens }} tokens
+                        {% if message.reply.cacheReadTokens or message.reply.cacheCreationTokens %}
+                            · cache: {{ message.reply.cacheReadTokens }} gelezen,
+                            {{ message.reply.cacheCreationTokens }} geschreven
+                        {% endif %}
                         {% if message.reply.stopReason != 'end_turn' %}
                             · stop: {{ message.reply.stopReason }}
                         {% endif %}

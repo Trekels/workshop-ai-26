@@ -26,6 +26,7 @@ final class SendController extends AbstractController
         if (!$form->isSubmitted() || !$form->isValid()) {
             return $this->render('chat/index.html.twig', [
                 'messages' => $store->messages(),
+                'summary' => $store->summary(),
                 'form' => $form,
             ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
         }

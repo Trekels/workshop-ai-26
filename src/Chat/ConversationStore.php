@@ -12,11 +12,21 @@ use App\Ai\ChatMessage;
 interface ConversationStore
 {
     /**
-     * @return list<ChatMessage> alle berichten van het actieve gesprek, in volgorde
+     * @return list<ChatMessage> de berichten die nog in de context zitten (dus zonder de gecompacteerde), in volgorde
      */
     public function messages(): array;
 
     public function append(ChatMessage ...$messages): void;
+
+    /**
+     * Samenvatting van het gecompacteerde deel van het gesprek, of null zolang er niets gecompacteerd is.
+     */
+    public function summary(): ?string;
+
+    /**
+     * Vervang alles behalve de laatste $keepRecent berichten door deze samenvatting.
+     */
+    public function compact(string $summary, int $keepRecent): void;
 
     /**
      * Start een nieuw, leeg gesprek.
