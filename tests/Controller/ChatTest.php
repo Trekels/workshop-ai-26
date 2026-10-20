@@ -149,6 +149,21 @@ final class ChatTest extends WebTestCase
         self::assertSelectorNotExists('.summary');
     }
 
+    public function testPersonalDataIsMaskedBeforeItLeavesTheServer(): void
+    {
+        $this->client->request('GET', '/');
+        $this->client->submitForm('Verstuur', [
+            'chat_input[message]' => 'Ik ben jan@example.com, bel me op 0470 12 34 56. Iets voor 2 spelers?',
+        ]);
+        $this->client->followRedirect();
+
+        // Het model krijgt de gemaskeerde versie, en onze database ook: wat je niet bewaart, kan niet lekken.
+        $sent = $this->model->receivedHistories[0][0]->content;
+        self::assertSame('Ik ben [e-mail], bel me op [telefoon]. Iets voor 2 spelers?', $sent);
+        self::assertSelectorTextContains('.message--user', '[e-mail]');
+        self::assertSelectorTextNotContains('.message--user', 'jan@example.com');
+    }
+
     public function testBlankQuestionIsRejected(): void
     {
         $this->client->request('GET', '/');

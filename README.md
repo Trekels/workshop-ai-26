@@ -124,6 +124,37 @@ logica is dezelfde, maar dan zie je ze niet meer.
 
 Klaar? Verwijder het `ignoreErrors`-blok onderaan `phpstan.dist.neon`.
 
+## Opdracht laag 5: wat verlaat je server, en wat komt er binnen
+
+Vertrekpunt: `git checkout layer-5-start`, en daarna opnieuw `php bin/console doctrine:migrations:migrate -n`.
+Die migratie verandert de beschrijving van één game: er staat nu een "tip" met een link in, en een valse bewering
+dat Rocket League en Valorant niet meer gratis zijn. Zet `CLAUDE_MODEL=claude-haiku-4-5-20251001` in `.env`,
+vraag "iets gratis voor vier man?" en kijk wat het model doet. Probeer daarna hetzelfde met Opus.
+
+Open `var/log/ai.log`: sinds deze laag logt `src/Ai/LoggingChatModel.php` (een `#[AsDecorator]` rond
+`ChatModel`) alles wat naar Anthropic vertrekt en terugkomt. Zoek het tool-resultaat en de beschrijving van
+Fall Guys. Dat is prompt injection: tekst uit je eigen database die jij niet schreef, die via een tool in de
+prompt belandt, en die het model leest alsof ze even betrouwbaar is als de prijs ernaast. Haiku geeft de link
+gewoon door als "pro-tip". Opus doorziet de truc, maar gaat wel aan zijn eigen prijsdata twijfelen en vraagt
+je "het even te checken". Een groter model helpt, maar daar bouw je niet op.
+
+1. **Data is geen instructie, en geen waarheid.** De goedkoopste verdediging staat in `src/Chat/ChatService.php`:
+   zeg in de system prompt dat tool-resultaten data zijn, dat vrije tekst erin door iedereen geschreven kan zijn,
+   dat de velden (`price_eur`, `players`, `coop`) de waarheid zijn, en dat links uit beschrijvingen nooit
+   doorgegeven worden. Stel de vraag opnieuw, op Haiku en op Opus. Dit helpt, maar het blijft een verzoek aan
+   het model. Daarom is de échte verdediging dat `search_games` enkel kan lezen: het ergste wat hier kan gebeuren
+   is een slecht advies. Geef het model nooit een tool met gevolgen (mail sturen, bestellen, wissen) zonder dat
+   een mens bevestigt.
+2. **Stuur niet meer dan nodig.** Typ "Ik ben jan@example.com, bel me op 0470 12 34 56, iets voor 2 spelers?"
+   en lees `ai.log`: je e-mailadres en nummer vertrokken naar een externe partij en staan in onze database,
+   terwijl het model ze niet nodig heeft om een game te kiezen. Implementeer `src/Chat/PiiRedactor.php` →
+   `redact()`: e-mailadressen en telefoonnummers maskeren vóór de vraag de server verlaat. `ChatService`
+   roept hem al aan. De tests in `tests/Chat/PiiRedactorTest.php` zeggen wat je minstens moet herkennen
+   en wat je niet mag kapotmaken.
+
+Data-minimalisatie is geen beleefdheid maar een GDPR-principe, en het is de brug naar laag 6: wat je
+niet verstuurt, hoef je ook niet te beschermen, te bewaren of te wissen.
+
 ## Kwaliteitschecks
 
 ```bash
@@ -135,8 +166,9 @@ composer test      # phpunit
 ## Waar zit wat
 
 - `src/Ai/` – het gesprek met het model: `ChatModel` (interface), `ClaudeChatModel` (de SDK-call)
-- `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen), `ConversationStore` (het geheugen, in SQLite)
-  en `HistoryCompactor` (samenvatten als de context te groot wordt)
+  en `LoggingChatModel` (schrijft elke call naar `var/log/ai.log`)
+- `src/Chat/` – `ChatService` (system prompt, geschiedenis meesturen), `ConversationStore` (het geheugen, in SQLite),
+  `HistoryCompactor` (samenvatten als de context te groot wordt) en `PiiRedactor` (persoonsgegevens maskeren)
 - `src/Ai/Tool/` – `Tool` (interface) en `SearchGamesTool`: code die het model mag aanvragen
 - `src/Entity/` + `migrations/` – `Conversation`, `Message` en `Game`: de database voor álle lagen staat al klaar,
   ORM-mapping typen is niet de les. Vanaf laag 2 gebruiken we ze; `src/Ai/ChatMessage.php` en `ToolCall.php` ook

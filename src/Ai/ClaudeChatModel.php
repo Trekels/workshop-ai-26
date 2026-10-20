@@ -18,9 +18,11 @@ use Anthropic\Messages\ToolResultBlockParam;
 use Anthropic\Messages\ToolUseBlock;
 use Anthropic\Messages\ToolUseBlockParam;
 use App\Ai\Tool\Tool;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
+#[AsAlias(ChatModel::class)]
 final class ClaudeChatModel implements ChatModel
 {
     private const int MAX_TOKENS = 16000;
