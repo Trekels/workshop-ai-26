@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ai;
 
 use Anthropic\Client;
+use Anthropic\Messages\TextBlock;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final class ClaudeChatModel implements ChatModel
@@ -20,19 +21,31 @@ final class ClaudeChatModel implements ChatModel
 
     public function reply(string $systemPrompt, string $question): ChatReply
     {
-        // TODO laag 1: dit is de enige plek waar de app met Claude praat.
-        //
-        // 1. Roep $this->client->messages->create(...) aan met:
-        //      maxTokens: self::MAX_TOKENS
-        //      messages:  [['role' => 'user', 'content' => $question]]
-        //      model:     $this->model
-        //      system:    $systemPrompt
-        // 2. Het antwoord ($message->content) is een lijst blokken. Plak de tekst van alle
-        //    Anthropic\Messages\TextBlock-blokken aan elkaar.
-        // 3. Geef een ChatReply terug met de tekst, $message->model, $message->stopReason
-        //    en de tokens uit $message->usage (inputTokens / outputTokens).
-        //
-        // Extra: als $message->stopReason 'refusal' is, zit de uitleg in $message->stopDetails->explanation.
-        throw new \LogicException(\sprintf('Laag 1: implementeer de call naar %s in %s', $this->model, self::class));
+        // Dit is de hele "magie": één HTTP-call met een system prompt en de vraag.
+        $message = $this->client->messages->create(
+            maxTokens: self::MAX_TOKENS,
+            messages: [['role' => 'user', 'content' => $question]],
+            model: $this->model,
+            system: $systemPrompt,
+        );
+
+        $text = '';
+        foreach ($message->content as $block) {
+            if ($block instanceof TextBlock) {
+                $text .= $block->text;
+            }
+        }
+
+        if ('refusal' === $message->stopReason) {
+            $text = $message->stopDetails->explanation ?? 'Het model weigerde deze vraag te beantwoorden.';
+        }
+
+        return new ChatReply(
+            text: $text,
+            model: $message->model,
+            stopReason: $message->stopReason,
+            inputTokens: $message->usage->inputTokens,
+            outputTokens: $message->usage->outputTokens,
+        );
     }
 }

@@ -12,11 +12,3 @@ parameters:
         - tests/bootstrap.php
     symfony:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
-
-    # Opdracht laag 1: de TODO-stub gebruikt zijn dependencies nog niet.
-    # Verwijder dit blok zodra ClaudeChatModel::reply() af is.
-    ignoreErrors:
-        -
-            identifiers: [property.onlyWritten, classConstant.unused]
-            paths:
-                - src/Ai/ClaudeChatModel.php
