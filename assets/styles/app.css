@@ -109,6 +109,24 @@ body {
     border: 1px solid var(--accent);
 }
 
+.chat__actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.flash--info {
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background: #e3eef7;
+    color: var(--accent);
+}
+
+.chat__notice {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
 .flash--error {
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;

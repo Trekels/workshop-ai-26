@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller;
 
+use App\Ai\ChatMessage;
 use App\Ai\ChatModel;
 use App\Ai\Role;
 use App\Ai\ToolCall;
+use App\Entity\Conversation;
 use App\Entity\Message;
 use App\Tests\Fake\FakeChatModel;
 use Doctrine\ORM\EntityManagerInterface;
@@ -162,6 +164,47 @@ final class ChatTest extends WebTestCase
         self::assertSame('Ik ben [e-mail], bel me op [telefoon]. Iets voor 2 spelers?', $sent);
         self::assertSelectorTextContains('.message--user', '[e-mail]');
         self::assertSelectorTextNotContains('.message--user', 'jan@example.com');
+    }
+
+    public function testDeletingTheConversationRemovesOnlyMyRowsFromTheDatabase(): void
+    {
+        // Een gesprek van iemand anders, dat moet blijven staan.
+        $other = new Conversation();
+        Message::fromChatMessage($other, ChatMessage::user('Vraag van een ander'));
+        $this->entityManager->persist($other);
+        $this->entityManager->flush();
+
+        $this->client->request('GET', '/');
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Mijn vraag']);
+        $this->client->followRedirect();
+        $this->client->submitForm('Wis mijn gesprek');
+
+        self::assertResponseRedirects('/', 303);
+        $this->client->followRedirect();
+        self::assertSelectorExists('.chat__empty');
+        self::assertSelectorTextContains('.flash--info', 'gewist');
+
+        $this->entityManager->clear();
+        $conversations = $this->entityManager->getRepository(Conversation::class)->findAll();
+        self::assertCount(1, $conversations, 'enkel het mijne weg');
+        $messages = $this->entityManager->getRepository(Message::class)->findAll();
+        self::assertSame(
+            ['Vraag van een ander'],
+            array_map(static fn (Message $m): string => $m->getContent(), $messages),
+        );
+
+        // En na het wissen gewoon verder kunnen: een nieuw gesprek start leeg.
+        $this->client->submitForm('Verstuur', ['chat_input[message]' => 'Nieuwe vraag']);
+        self::assertCount(1, $this->model->receivedHistories[1], 'geen geschiedenis meer');
+    }
+
+    public function testTransparencyNoticeTellsWhatHappensWithTheData(): void
+    {
+        $this->client->request('GET', '/');
+
+        self::assertSelectorTextContains('.chat__notice', 'Anthropic');
+        self::assertSelectorTextContains('.chat__notice', 'maskeren');
+        self::assertSelectorTextContains('.chat__notice', 'dagen');
     }
 
     public function testBlankQuestionIsRejected(): void

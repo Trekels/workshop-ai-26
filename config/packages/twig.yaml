@@ -1,5 +1,9 @@
 twig:
     file_name_pattern: '*.twig'
+    # Laag 6: voor de transparantie-regel onder het invoerveld.
+    globals:
+        claude_model: '%env(CLAUDE_MODEL)%'
+        chat_retention_days: '%env(int:CHAT_RETENTION_DAYS)%'
 
 when@test:
     twig:
