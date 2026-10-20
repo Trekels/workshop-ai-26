@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Chat;
 
+use App\Ai\ChatMessage;
 use App\Ai\ChatModel;
 use App\Ai\ChatReply;
 
@@ -16,12 +17,20 @@ final class ChatService
 
     public function __construct(
         private readonly ChatModel $model,
+        private readonly ConversationStore $store,
     ) {
     }
 
     public function ask(string $question): ChatReply
     {
-        // Laag 1: geen geheugen. Elke vraag staat op zichzelf.
-        return $this->model->reply(self::SYSTEM_PROMPT, $question);
+        $userMessage = ChatMessage::user($question);
+
+        // Het model is stateless: alles wat het over dit gesprek "weet", sturen wij zelf mee.
+        $reply = $this->model->reply(self::SYSTEM_PROMPT, [...$this->store->messages(), $userMessage]);
+
+        // Pas opslaan na een geslaagde call, anders blijft een vraag zonder antwoord achter.
+        $this->store->append($userMessage, ChatMessage::assistant($reply));
+
+        return $reply;
     }
 }

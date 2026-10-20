@@ -6,6 +6,10 @@
 <main class="chat">
     <header class="chat__header">
         <h1>Workshop AI</h1>
+        <form method="post" action="{{ path('chat_reset') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('chat_reset') }}">
+            <button type="submit" class="button button--ghost">Nieuw gesprek</button>
+        </form>
     </header>
 
     {% for message in app.flashes('error') %}
@@ -13,31 +17,26 @@
     {% endfor %}
 
     <section class="chat__messages" aria-live="polite">
-        {% if question is defined %}
-            <article class="message message--user">
-                <p class="message__text">{{ question|nl2br }}</p>
+        {% for message in messages %}
+            <article class="message message--{{ message.role.value }}">
+                <p class="message__text">{{ message.content|nl2br }}</p>
+                {% if message.reply %}
+                    <footer class="message__meta">
+                        {{ message.reply.model }}
+                        · in: {{ message.reply.inputTokens }} tokens
+                        · uit: {{ message.reply.outputTokens }} tokens
+                        {% if message.reply.stopReason != 'end_turn' %}
+                            · stop: {{ message.reply.stopReason }}
+                        {% endif %}
+                    </footer>
+                {% endif %}
             </article>
-        {% endif %}
-        {% if reply is defined and reply %}
-            <article class="message message--assistant">
-                <p class="message__text">{{ reply.text|nl2br }}</p>
-                <footer class="message__meta">
-                    {{ reply.model }}
-                    · in: {{ reply.inputTokens }} tokens
-                    · uit: {{ reply.outputTokens }} tokens
-                    {% if reply.stopReason != 'end_turn' %}
-                        · stop: {{ reply.stopReason }}
-                    {% endif %}
-                </footer>
-            </article>
-        {% endif %}
-        {% if question is not defined %}
-            <p class="chat__empty">Stel een vraag. Laag 1 heeft geen geheugen: elke vraag staat op zichzelf.</p>
-        {% endif %}
+        {% else %}
+            <p class="chat__empty">Nog geen berichten. Stel een vraag om te starten.</p>
+        {% endfor %}
     </section>
 
-    {# data-turbo=false: de POST rendert gewoon een pagina, Turbo verwacht anders een redirect #}
-    {{ form_start(form, {attr: {class: 'chat__form', 'data-turbo': 'false'}}) }}
+    {{ form_start(form, {attr: {class: 'chat__form'}}) }}
         {{ form_row(form.message) }}
         <button type="submit" class="button">Verstuur</button>
     {{ form_end(form) }}
